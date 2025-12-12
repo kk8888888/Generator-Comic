@@ -19,6 +19,7 @@
    ```
    若已安装 Pillow 和字体，生成的 `output/panel_*.png` 即为彩色漫画面板；
    在缺少依赖的环境下会自动退化为 `panel_*.txt` 文本面板，便于离线查看。
+   直接运行 `python comic_generator.py` 也会自动使用示例故事，方便快速试跑。
 3. 转换自定义故事：
    ```bash
    python comic_generator.py "请在这里输入你的故事" --output my_comic

@@ -183,6 +183,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if not (args.demo or args.file or args.story):
+        print("未提供故事文本，自动使用内置示例。可以添加 --help 查看用法细节。")
+        args.demo = True
+
     if args.demo:
         story = """Doraemon 带着小学生解释什么是 AI。\n他们从机器猫的口袋里拿出一本未来教科书，\n教科书会自己说话，告诉孩子们 AI 就像善良的伙伴，\n能帮忙画漫画、写诗歌，还能陪你一起学习。"""
     elif args.file:
