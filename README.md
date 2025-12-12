@@ -17,7 +17,8 @@
    ```bash
    python comic_generator.py --demo --output output
    ```
-   生成的 `output/panel_*.png` 即为彩色漫画面板。
+   若已安装 Pillow 和字体，生成的 `output/panel_*.png` 即为彩色漫画面板；
+   在缺少依赖的环境下会自动退化为 `panel_*.txt` 文本面板，便于离线查看。
 3. 转换自定义故事：
    ```bash
    python comic_generator.py "请在这里输入你的故事" --output my_comic
@@ -35,7 +36,8 @@
 3. **面板绘制**：利用 `Pillow` 绘制彩色背景、对白框和风格角标，输出一张张 PNG 图片。
 
 ## 项目结构
-- `comic_generator.py`：核心脚本，包含翻译、对白风格化和面板绘制逻辑，亦提供命令行接口。
+- `comic_generator.py`：核心脚本，包含翻译、对白风格化和面板绘制逻辑，亦提供命令行接口；在缺少
+  `googletrans`、`langdetect` 或 `Pillow` 的场景下自动降级为本地检测、原文输出和文本面板。
 - `requirements.txt`：运行所需的第三方依赖列表。
 
 欢迎根据自己的故事和角色修改台词模板或颜色方案，制作专属动漫教材或创意短篇！

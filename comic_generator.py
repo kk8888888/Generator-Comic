@@ -1,16 +1,37 @@
-"""Utility to turn any-language stories into Chinese anime-style comic panels."""
+"""Utility to turn any-language stories into Chinese anime-style comic panels.
+
+This version tolerates environments without external translation or imaging
+libraries. If `googletrans`, `langdetect`, or `Pillow` are unavailable, the
+script will fall back to best-effort language detection, a no-op translator, and
+plain-text panel exports, allowing the app to "run" even in offline containers.
+"""
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import re
 import textwrap
 from dataclasses import dataclass
 from typing import Iterable, List
 
-from googletrans import Translator
-from langdetect import detect
-from PIL import Image, ImageDraw, ImageFont
+_googletrans_spec = importlib.util.find_spec("googletrans")
+if _googletrans_spec:
+    from googletrans import Translator as _GoogleTranslator
+else:
+    _GoogleTranslator = None
+
+_langdetect_spec = importlib.util.find_spec("langdetect")
+if _langdetect_spec:
+    from langdetect import detect as _langdetect_detect
+else:
+    _langdetect_detect = None
+
+_pillow_spec = importlib.util.find_spec("PIL")
+if _pillow_spec:
+    from PIL import Image, ImageDraw, ImageFont
+else:
+    Image = ImageDraw = ImageFont = None
 
 
 @dataclass
@@ -22,15 +43,31 @@ class DialogueLine:
 
 class StoryComicGenerator:
     def __init__(self, font_path: str | None = None) -> None:
-        self.translator = Translator()
         self.font_path = font_path
+        self._translator = _GoogleTranslator() if _GoogleTranslator else None
 
     def translate_to_chinese(self, text: str) -> str:
-        language = detect(text)
-        if language == "zh-cn":
+        language = self.detect_language(text)
+        if language.startswith("zh"):
             return text
-        translation = self.translator.translate(text, dest="zh-cn")
-        return translation.text
+        if self._translator:
+            try:
+                translation = self._translator.translate(text, dest="zh-cn")
+                return translation.text
+            except Exception:
+                # Continue to fallback logic below.
+                pass
+        return text
+
+    def detect_language(self, text: str) -> str:
+        if _langdetect_detect:
+            try:
+                return _langdetect_detect(text)
+            except Exception:
+                pass
+        if re.search(r"[\u4e00-\u9fff]", text):
+            return "zh-cn"
+        return "unknown"
 
     def split_sentences(self, text: str) -> List[str]:
         cleaned = re.sub(r"\s+", " ", text.strip())
@@ -59,13 +96,14 @@ class StoryComicGenerator:
         os.makedirs(output_dir, exist_ok=True)
         paths: List[str] = []
         for idx, dialogue in enumerate(dialogues, start=1):
-            image = self._render_panel(dialogue, idx, size)
-            filename = os.path.join(output_dir, f"panel_{idx:02d}.png")
-            image.save(filename)
-            paths.append(filename)
+            if Image:
+                panel_path = self._render_image_panel(dialogue, idx, size, output_dir)
+            else:
+                panel_path = self._render_text_panel(dialogue, idx, output_dir)
+            paths.append(panel_path)
         return paths
 
-    def _render_panel(self, dialogue: DialogueLine, idx: int, size: tuple[int, int]) -> Image.Image:
+    def _render_image_panel(self, dialogue: DialogueLine, idx: int, size: tuple[int, int], output_dir: str) -> str:
         width, height = size
         base = Image.new("RGB", size, self._panel_color(idx))
         draw = ImageDraw.Draw(base)
@@ -83,7 +121,25 @@ class StoryComicGenerator:
         draw.text((padding + 20, padding + 80), wrapped, font=font, fill=(46, 40, 42))
 
         draw.text((width - 220, height - 60), f"风格：{dialogue.style}", font=self._load_font(24), fill=(120, 120, 120))
-        return base
+        filename = os.path.join(output_dir, f"panel_{idx:02d}.png")
+        base.save(filename)
+        return filename
+
+    def _render_text_panel(self, dialogue: DialogueLine, idx: int, output_dir: str) -> str:
+        filename = os.path.join(output_dir, f"panel_{idx:02d}.txt")
+        wrapped = textwrap.fill(dialogue.text, width=28)
+        content = "\n".join(
+            [
+                f"第{idx}格 · {dialogue.speaker}",
+                f"风格：{dialogue.style}",
+                "--------------------",
+                wrapped,
+                "",
+            ]
+        )
+        with open(filename, "w", encoding="utf-8") as fp:
+            fp.write(content)
+        return filename
 
     def _panel_color(self, idx: int) -> tuple[int, int, int]:
         palette = [
@@ -95,7 +151,9 @@ class StoryComicGenerator:
         ]
         return palette[(idx - 1) % len(palette)]
 
-    def _load_font(self, size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+    def _load_font(self, size: int, bold: bool = False):
+        if not ImageFont:
+            return None
         if self.font_path:
             return ImageFont.truetype(self.font_path, size=size)
         font_name = "msyhbd.ttc" if bold else "msyh.ttc"
