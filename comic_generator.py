@@ -45,6 +45,19 @@ class StoryComicGenerator:
     def __init__(self, font_path: str | None = None) -> None:
         self.font_path = font_path
         self._translator = _GoogleTranslator() if _GoogleTranslator else None
+        self._warn_dependency_status()
+
+    def _warn_dependency_status(self) -> None:
+        missing: list[str] = []
+        if not _GoogleTranslator:
+            missing.append("googletrans（翻译将直接使用原文）")
+        if not _langdetect_detect:
+            missing.append("langdetect（将使用简单的中文字符检测）")
+        if not Image:
+            missing.append("Pillow（将输出文本面板而非图片）")
+
+        if missing:
+            print("提示：未找到依赖 -> " + "; ".join(missing))
 
     def translate_to_chinese(self, text: str) -> str:
         language = self.detect_language(text)
@@ -72,7 +85,10 @@ class StoryComicGenerator:
     def split_sentences(self, text: str) -> List[str]:
         cleaned = re.sub(r"\s+", " ", text.strip())
         parts = re.split(r"(?<=[。！？!?.])\s+", cleaned)
-        return [p for p in parts if p]
+        sentences = [p for p in parts if p]
+        if not sentences and cleaned:
+            sentences.append(cleaned)
+        return sentences
 
     def stylize_dialogues(self, sentences: Iterable[str]) -> List[DialogueLine]:
         speakers = ["未来科学少年", "AI猫搭档", "旁白"]
