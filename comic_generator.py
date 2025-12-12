@@ -128,7 +128,7 @@ class StoryComicGenerator:
 
         padding = 30
         speech_box = [padding, padding + 50, width - padding, height - padding]
-        draw.rectangle(speech_box, fill=(255, 255, 255, 180), outline=(255, 156, 187), width=4)
+        draw.rectangle(speech_box, fill=(255, 255, 255), outline=(255, 156, 187), width=4)
 
         title = f"第{idx}格 · {dialogue.speaker}"
         draw.text((padding, padding), title, font=title_font, fill=(255, 255, 255))
